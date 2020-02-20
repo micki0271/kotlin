@@ -40,6 +40,8 @@ import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreeRestorer
 import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreeState
 import com.intellij.xdebugger.impl.ui.tree.nodes.XValueContainerNode
 import com.intellij.xdebugger.impl.ui.tree.nodes.XValueNodeImpl
+import com.sun.jdi.ClassType
+import com.sun.jdi.Method
 import com.sun.jdi.request.EventRequest
 import org.jetbrains.kotlin.idea.KotlinBundle
 import org.jetbrains.kotlin.idea.debugger.coroutine.CoroutineDebuggerContentInfo
@@ -47,6 +49,7 @@ import org.jetbrains.kotlin.idea.debugger.coroutine.CoroutineDebuggerContentInfo
 import org.jetbrains.kotlin.idea.debugger.coroutine.VersionedImplementationProvider
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.*
 import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.*
+import org.jetbrains.kotlin.idea.debugger.coroutine.proxy.data.ContinuationHolder
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.CreateContentParams
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.CreateContentParamsProvider
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.XDebugSessionListenerProvider
@@ -82,7 +85,7 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
     }
 
     init {
-        someCombobox.setRenderer(versionedImplementationProvider.comboboxListCellRenderer())
+        someCombobox.renderer = versionedImplementationProvider.comboboxListCellRenderer()
         object : ComboboxSpeedSearch(someCombobox) {
             override fun getElementText(element: Any?): String? {
                 return element.toString()
@@ -91,8 +94,8 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
         someCombobox.addItem(null)
         val myToolbar = createToolbar()
         val myThreadsPanel = Wrapper()
-        myThreadsPanel.setBorder(CustomLineBorder(CaptionPanel.CNT_ACTIVE_BORDER_COLOR, 0, 0, 1, 0))
-        myThreadsPanel.add(myToolbar?.getComponent(), BorderLayout.EAST)
+        myThreadsPanel.border = CustomLineBorder(CaptionPanel.CNT_ACTIVE_BORDER_COLOR, 0, 0, 1, 0)
+        myThreadsPanel.add(myToolbar?.component, BorderLayout.EAST)
         myThreadsPanel.add(someCombobox, BorderLayout.CENTER)
         mainPanel.add(panel.mainPanel, BorderLayout.CENTER)
         selectedNodeListener.installOn()
@@ -376,12 +379,38 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
         val position =
             applicationThreadExecutor.readAction { getPosition(frame.stackTraceElement.className, frame.stackTraceElement.lineNumber) }
                 ?: return null
-        val lookupContinuation = LookupContinuation(executionContext, frame.stackTraceElement)
-        val continuation = lookupContinuation.findContinuation(frame.lastObservedFrameFieldRef) ?: return null
 
-        val asyncStackTraceContext = lookupContinuation.createAsyncStackTraceContext(continuation)
-        val vars = asyncStackTraceContext?.getSpilledVariables(continuation) ?: return null
+        val method = findMethod(executionContext, frame.stackTraceElement)
+//        val holder = ContinuationHolder.lookup(executionContext, method)
+//        val lookupContinuation = LookupContinuation(executionContext, frame.stackTraceElement)
+
+
+        val continuation = ContinuationHolder.lookup(executionContext, frame.lastObservedFrameFieldRef, frame.stackTraceElement) ?: return null
+
+        val getStackTraceElementMethodRef =
+            (continuation.value().type() as ClassType).concreteMethodByName("getStackTraceElement", "()Ljava/lang/StackTraceElement;")
+
+        val asyncStackTraceContext = continuation.context(executionContext, getStackTraceElementMethodRef)
+        val vars = asyncStackTraceContext?.getSpilledVariables() ?: return null
         return SyntheticStackFrame(frame.emptyDescriptor(), vars, position)
+    }
+
+
+    fun isApplicable(method: Method): Boolean {
+        return suspendOrInvokeSuspend(method)
+    }
+
+    private fun suspendOrInvokeSuspend(method: Method): Boolean =
+        "Lkotlin/coroutines/Continuation;)" in method.signature() ||
+                (method.name() == "invokeSuspend" && method.signature() == "(Ljava/lang/Object;)Ljava/lang/Object;") // suspend fun or invokeSuspend
+
+    private fun findMethod(context: ExecutionContext, frame: StackTraceElement): Method {
+        val clazz = context.findClass(frame.className) as ClassType
+        val method = clazz.methodsByName(frame.methodName).last {
+            val loc = it.location().lineNumber()
+            loc < 0 && frame.lineNumber < 0 || loc > 0 && loc <= frame.lineNumber
+        } // pick correct method if an overloaded one is given
+        return method
     }
 }
 

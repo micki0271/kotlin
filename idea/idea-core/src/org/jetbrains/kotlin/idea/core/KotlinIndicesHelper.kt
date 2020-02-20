@@ -245,12 +245,14 @@ class KotlinIndicesHelper(
 
         fun processDescriptor(callableDeclaration: KtCallableDeclaration, descriptor: CallableDescriptor) {
             if (descriptor.extensionReceiverParameter != null && descriptorFilter(descriptor)) {
-                EA.ea141456(
-                    callableDeclaration.text,
-                    descriptor,
-                    descriptor.extensionReceiverParameter,
-                    descriptor.extensionReceiverParameter?.type,
-                ).invoke {
+                EA.ea141456 {
+                    it.vars(
+                        callableDeclaration.text,
+                        descriptor,
+                        descriptor.extensionReceiverParameter,
+                        descriptor.extensionReceiverParameter?.type
+                    )
+                }.invoke {
                     result.addAll(descriptor.substituteExtensionIfCallable(receiverTypes, callType))
                 }
             }

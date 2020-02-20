@@ -10,6 +10,8 @@ dependencies {
     compile(project(":idea:idea-core"))
     compile(project(":idea:ide-common"))
     compile(project(":idea:jvm-debugger:jvm-debugger-util"))
+    compile(project(":idea:jvm-debugger:jvm-debugger-coroutine"))
+    compile(toolsJar())
 
     compileOnly(toolsJar())
     compileOnly(intellijDep())

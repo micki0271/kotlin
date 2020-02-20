@@ -306,8 +306,9 @@ fun DeclarationDescriptor.fuzzyTypesForSmartCompletion(
 
     if (this is CallableDescriptor) {
         val returnType =
-            EA.ea141456(this, this.returnType)
-                .invoke { fuzzyReturnType() } ?: return emptyList()
+            EA.ea141456 {
+                it.vars(this, this.returnType)
+            }.invoke { fuzzyReturnType() } ?: return emptyList()
 
         // skip declarations of types Nothing, Nothing?, dynamic or of generic parameter type which has no real bounds
         if (returnType.type.isNothing() ||

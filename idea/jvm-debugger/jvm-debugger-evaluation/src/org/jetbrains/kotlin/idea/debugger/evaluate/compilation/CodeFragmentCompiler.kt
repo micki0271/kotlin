@@ -55,8 +55,11 @@ class CodeFragmentCompiler(private val executionContext: ExecutionContext, priva
 
     fun compile(codeFragment: KtCodeFragment, bindingContext: BindingContext, moduleDescriptor: ModuleDescriptor): CompilationResult {
         return runReadAction {
-            EA.ea219323(codeFragment, codeFragment.text)
-                .invoke { doCompile(codeFragment, bindingContext, moduleDescriptor) }
+            EA.ea219323  {
+                it.vars(codeFragment, codeFragment.text)
+            }.invoke {
+                doCompile(codeFragment, bindingContext, moduleDescriptor)
+            }
         }
     }
 
