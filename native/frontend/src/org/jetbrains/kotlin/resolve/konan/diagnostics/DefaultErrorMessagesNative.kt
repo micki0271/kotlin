@@ -22,6 +22,7 @@ private val DIAGNOSTIC_FACTORY_TO_RENDERER by lazy {
         )
         put(ErrorsNative.INAPPLICABLE_SHARED_IMMUTABLE_PROPERTY, "@SharedImmutable isn't applicable to current property")
         put(ErrorsNative.INAPPLICABLE_SHARED_IMMUTABLE_TOP_LEVEL, "@SharedImmutable is applicable only to top level declarations")
+        put(ErrorsNative.VARIABLE_IN_TOP_LEVEL_SINGLETON_WITHOUT_THERAD_LOCAL, "Variable in top level singleton without @ThreadLocal")
     }
 }
 
